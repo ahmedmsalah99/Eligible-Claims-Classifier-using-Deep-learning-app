@@ -1,0 +1,4 @@
+.venv
+.DS_Store
+quantized_setfitonnx_model.onnx
+run_all.sh
