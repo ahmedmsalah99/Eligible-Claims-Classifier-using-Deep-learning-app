@@ -62,7 +62,8 @@ async def choose_imp_sents(choose_imp_sents_body:ChooseImpSentsBody):
         scores[i] = np.mean(scores[i-1:i+1])
 
     indeces = np.argsort(scores)
-
+    if len(indeces)<1:
+        return {"status":200,"relevant_part":"","sorted_sentences":""}
     most_relevant_sent_idx = indeces[-1]
     most_relevant_sent = sentences[most_relevant_sent_idx]
 
