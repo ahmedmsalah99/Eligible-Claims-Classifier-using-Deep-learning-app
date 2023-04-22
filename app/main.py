@@ -15,6 +15,11 @@ import scipy
 from pathlib import Path
 from pydantic import BaseModel
 
+from sentence_transformers import SentenceTransformer
+from scipy import spatial
+from nltk.tokenize import sent_tokenize
+
+
 app = FastAPI()
 
 
@@ -29,7 +34,49 @@ class Item(BaseModel):
     representative_claim_input: str
     judge: str | None = None
     court:str | None = None
+class ChooseImpSentsBody(BaseModel):
+    spec:str
+    claim:str
+    n_sents:int|None=3
     
+@app.post("/choose_imp_sents")
+async def choose_imp_sents(choose_imp_sents_body:ChooseImpSentsBody):
+    claim = choose_imp_sents_body.claim
+    spec = choose_imp_sents_body.spec
+    n_sents = choose_imp_sents_body.n_sents
+    
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    calc_cos_sem = lambda x,y: 1 - spatial.distance.cosine(x, y)
+    sent_bef = ''
+    sent_after = ''
+
+    sentences = sent_tokenize(spec)
+    sentence_embeddings = model.encode(sentences)
+    claim_embedding = model.encode(claim)
+
+    scores = [calc_cos_sem(emb,claim_embedding) for emb in sentence_embeddings]
+    indeces = np.argsort(scores)
+    sorted_sentences = list(np.array(sentences)[indeces][::-1])
+
+    for i in range(1,len(scores)-1):
+        scores[i] = np.mean(scores[i-1:i+1])
+
+    indeces = np.argsort(scores)
+
+    most_relevant_sent_idx = indeces[-1]
+    most_relevant_sent = sentences[most_relevant_sent_idx]
+
+
+    if most_relevant_sent_idx-1>-1:
+        idx = most_relevant_sent_idx-1
+        sent_bef = sentences[idx]
+
+    if most_relevant_sent_idx+1<len(scores):
+        idx = most_relevant_sent_idx+1
+        sent_after = sentences[idx]
+    sents = [sent for sent in [sent_bef,most_relevant_sent,sent_after] if sent != ""]
+    relevant_part = "".join(sents)
+    return {"status":200,"relevant_part":relevant_part,"sorted_sentences":sorted_sentences[:n_sents]}
 
 @app.post("/predict")
 async def inference(item: Item):    
