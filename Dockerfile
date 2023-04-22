@@ -1,13 +1,13 @@
 FROM tiangolo/uvicorn-gunicorn-fastapi:python3.10
-RUN pip install --upgrade pip
+# RUN pip install --upgrade pip
 
-COPY ./requirements.txt /app/requirements.txt
-COPY ./setup.py /setup.py
-RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
-RUN pip install -U nltk
-RUN python /setup.py
-RUN apt-get install unzip
 
 COPY ./app /app/app
-RUN unzip /app/app/quantized_setfitonnx_model.zip -d /app/app
-RUN rm -rf /app/app/quantized_setfitonnx_model.zip
+
+RUN pip install -U --no-cache-dir --upgrade -r /app/app/requirements.txt
+# RUN apt-get install unzip
+
+
+RUN python /app/app/setup.py && apt-get install unzip && unzip /app/app/quantized_setfitonnx_model.zip -d /app/app && rm -rf /app/app/quantized_setfitonnx_model.zip
+# RUN unzip /app/app/quantized_setfitonnx_model.zip -d /app/app
+# RUN rm -rf /app/app/quantized_setfitonnx_model.zip
