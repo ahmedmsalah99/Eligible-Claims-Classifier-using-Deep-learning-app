@@ -63,7 +63,7 @@ async def choose_imp_sents(choose_imp_sents_body:ChooseImpSentsBody):
 
     indeces = np.argsort(scores)
     if len(indeces)<1:
-        return {"status":200,"relevant_part":"","sorted_sentences":""}
+        return {"status":200,"relevant_part":"","sorted_sentences":[]}
     most_relevant_sent_idx = indeces[-1]
     most_relevant_sent = sentences[most_relevant_sent_idx]
 
@@ -159,6 +159,6 @@ async def inference(item: Item):
             return {"status":200,"result":model_prediction.item(),"confidence":round(xgb_model.predict_proba(model_input)[0].max().item(),6)}
 
 
-# if __name__ == "__main__":
-#     uvicorn.run(app)
+if __name__ == "__main__":
+    uvicorn.run(app)
 
