@@ -1,7 +1,7 @@
 
 from fastapi import FastAPI
 import uvicorn
-
+import os
 import pickle
 import pandas as pd
 
@@ -21,8 +21,8 @@ from nltk.tokenize import sent_tokenize
 
 
 app = FastAPI()
-
-
+model = SentenceTransformer('all-MiniLM-L6-v2')
+calc_cos_sem = lambda x,y: 1 - spatial.distance.cosine(x, y)
 
 @app.get("/")
 def root():
@@ -38,18 +38,49 @@ class ChooseImpSentsBody(BaseModel):
     spec:str
     claim:str
     n_sents:int|None=3
+class GetGibsonRelevantSentsBody(BaseModel):
+    request:str
+    n_sents:int|None=5
+def get_top_n_embeddings(request,data_path,n):
+    request_emb = model.encode(request)
+    embeddings_path = os.path.join(data_path,'Embeddings')
+    info_df = pd.read_csv(os.path.join(data_path,'info.csv'))
+    scores = np.array([])
+    indeces = np.array([])
+    for  index, row in info_df.iterrows():
+        emb = np.load(row['path'])
+        score = calc_cos_sem(emb,request_emb)
+        scores = np.append(scores,score)
+        indeces = np.append(indeces,row['ID'])
+    sort_indeces = np.argsort(scores)[::-1]
+    indeces = indeces[sort_indeces]
+    scores = scores[sort_indeces]
+    return indeces[:n],scores[:n]
+
+@app.post("/get_gibson_relevant_sents")
+async def get_gibson_relevant_sents(get_gibson_relevant_sents_body:GetGibsonRelevantSentsBody):
+    request = get_gibson_relevant_sents_body.request
+    n_sents = get_gibson_relevant_sents_body.n_sents
+    gipson_path = os.path.join('data','Gipson')
+    indeces,scores = get_top_n_embeddings(request,gipson_path,n_sents)
+    df = pd.read_excel(os.path.join(gipson_path,'Final-Gibson-Dunn-101-Cases.xlsx'))
+    sub_df = df.loc[indeces,:].to_dict('list')
     
+    response = {'status':200,'holding':sub_df['Holding'],'case':sub_df['Case'],'date':sub_df['Date'],'elegibility':sub_df['Eligibility'],'score':list(scores)}
+    print(response)
+    return response
+        
+
+    
+
 @app.post("/choose_imp_sents")
 async def choose_imp_sents(choose_imp_sents_body:ChooseImpSentsBody):
     claim = choose_imp_sents_body.claim
     spec = choose_imp_sents_body.spec
     n_sents = choose_imp_sents_body.n_sents
     
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-    calc_cos_sem = lambda x,y: 1 - spatial.distance.cosine(x, y)
     sent_bef = ''
     sent_after = ''
-
     sentences = sent_tokenize(spec)
     sentence_embeddings = model.encode(sentences)
     claim_embedding = model.encode(claim)
@@ -159,6 +190,7 @@ async def inference(item: Item):
             return {"status":200,"result":model_prediction.item(),"confidence":round(xgb_model.predict_proba(model_input)[0].max().item(),6)}
 
 
-if __name__ == "__main__":
-    uvicorn.run(app)
+# if __name__ == "__main__":
+#     uvicorn.run(app)
+    
 
