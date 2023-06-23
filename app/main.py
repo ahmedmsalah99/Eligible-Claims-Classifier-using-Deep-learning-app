@@ -19,7 +19,7 @@ from sentence_transformers import SentenceTransformer
 from scipy import spatial
 from nltk.tokenize import sent_tokenize
 
-
+base_path=Path(__file__).resolve(strict=True).parent
 app = FastAPI()
 model = SentenceTransformer('all-MiniLM-L6-v2')
 calc_cos_sem = lambda x,y: 1 - spatial.distance.cosine(x, y)
@@ -61,7 +61,7 @@ def get_top_n_embeddings(request,data_path,n):
 async def get_gibson_relevant_sents(get_gibson_relevant_sents_body:GetGibsonRelevantSentsBody):
     request = get_gibson_relevant_sents_body.request
     n_sents = get_gibson_relevant_sents_body.n_sents
-    gipson_path = os.path.join('data','Gipson')
+    gipson_path = os.path.join(base_path,'data','Gipson')
     indeces,scores = get_top_n_embeddings(request,gipson_path,n_sents)
     df = pd.read_excel(os.path.join(gipson_path,'Final-Gibson-Dunn-101-Cases.xlsx'))
     sub_df = df.loc[indeces,:].to_dict('list')
@@ -116,7 +116,7 @@ async def inference(item: Item):
     representative_claim=item.representative_claim_input.strip()
     court=item.court
     judge=item.judge
-    base_path=Path(__file__).resolve(strict=True).parent
+    
 
     tokenizers_files_path =str(base_path)+"/tokenizer_files"
     output_path = str(base_path)+"/quantized_setfitonnx_model.onnx"
