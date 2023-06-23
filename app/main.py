@@ -48,7 +48,7 @@ def get_top_n_embeddings(request,data_path,n):
     scores = np.array([])
     indeces = np.array([])
     for  index, row in info_df.iterrows():
-        emb = np.load(os.path.join(base_path,row['path']))
+        emb = np.load(os.path.join(base_path,*row['path'].split(' ')))
         score = calc_cos_sem(emb,request_emb)
         scores = np.append(scores,score)
         indeces = np.append(indeces,row['ID'])

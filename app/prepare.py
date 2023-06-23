@@ -25,7 +25,7 @@ print(df.head())
 info_df = pd.DataFrame(columns=['ID','path'])
 ids = []
 paths = []
-base_save_path = os.path.join('data','Gipson','Embeddings')
+base_save_path = 'data Gipson Embeddings'
 for index, row in tqdm(df.iterrows()):
     sents = sent_tokenize(row['Holding'])
     embs = []
@@ -33,10 +33,11 @@ for index, row in tqdm(df.iterrows()):
         emb = model.encode(sent)
         embs.append(emb)
     final_emb = np.mean(embs,axis=0)
-    save_path = os.path.join(base_save_path,f'{index}.npy')
+    save_path_decomp = f'{base_save_path} {index}.npy'
+    save_path = os.path.join(*save_path_decomp.split(' '))
     np.save(save_path, final_emb)
     ids.append(index)
-    paths.append(save_path)
+    paths.append(save_path_decomp)
 info_df['ID'] = ids
 info_df['path'] = paths
 info_df.to_csv(os.path.join('data','Gipson','info.csv'))
