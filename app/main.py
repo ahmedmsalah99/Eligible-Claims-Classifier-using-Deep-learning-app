@@ -294,7 +294,7 @@ async def choose_imp_sents(choose_imp_sents_body:ChooseImpSentsBody):
     relevant_part = "".join(sents)
     return {"status":200,"relevant_part":relevant_part,"sorted_sentences":sorted_sentences[:n_sents]}
 
-if __name__ == "__main__":
-    uvicorn.run(app,port=80)
+# if __name__ == "__main__":
+#     uvicorn.run(app,port=80)
     
 
