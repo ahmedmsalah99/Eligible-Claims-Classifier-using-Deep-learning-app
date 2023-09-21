@@ -1,2 +1,3 @@
 __pycache__
 quantized_setfitonnx_model.onnx
+0.69-0.69-all.quant.onnx
