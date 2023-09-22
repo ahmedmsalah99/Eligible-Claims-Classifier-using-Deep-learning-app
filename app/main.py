@@ -12,7 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel
 import scipy
 from scipy import spatial
-from nltk.tokenize import sent_tokenize
+from nltk.tokenize import sent_tokenize,word_tokenize
 def get_vendor(sent):
     vendors = ['apple','samsung','cisco','sony','google','microsoft','facebook','amazon','rovi']
     sent = sent.lower()
@@ -64,7 +64,11 @@ class GetGibsonRelevantSentsBody(BaseModel):
 class GetUnpatentableRelevantSentsBody(BaseModel):
     request:str
     n_sents:int=15
-def get_top_n_embeddings(request,data_path,n):
+def get_top_n_embeddings(request,data_path,n, limit=None):
+    if limit is not None:
+        words = word_tokenize(request)
+        if len(words) > limit:
+            request = " ".join(words[:limit])
     request_emb = model.encode(request)
     info_df = pd.read_csv(os.path.join(data_path,'info.csv'))
     scores = np.array([])
@@ -78,7 +82,26 @@ def get_top_n_embeddings(request,data_path,n):
     indeces = indeces[sort_indeces]
     scores = scores[sort_indeces]
     return indeces[:n],scores[:n]
-
+def get_top_n_embeddings_unpatentable(request,data_path,n):
+    sents = request.split(';')
+    embs = []
+    for sent in sents:
+        emb = model.encode(sent)
+        embs.append(emb)
+    request_emb = np.mean(embs,axis=0)
+    request_emb = model.encode(request)
+    info_df = pd.read_csv(os.path.join(data_path,'info.csv'))
+    scores = np.array([])
+    indeces = np.array([])
+    for  _, row in info_df.iterrows():
+        emb = np.load(os.path.join(base_path,*row['path'].split(' ')))
+        score = calc_cos_sem(emb,request_emb)
+        scores = np.append(scores,score)
+        indeces = np.append(indeces,row['ID'])
+    sort_indeces = np.argsort(scores)[::-1]
+    indeces = indeces[sort_indeces]
+    scores = scores[sort_indeces]
+    return indeces[:n],scores[:n]
 @app.post("/get_gibson_relevant_sents")
 async def get_gibson_relevant_sents(get_gibson_relevant_sents_body:GetGibsonRelevantSentsBody):
     request = get_gibson_relevant_sents_body.request
@@ -89,7 +112,6 @@ async def get_gibson_relevant_sents(get_gibson_relevant_sents_body:GetGibsonRele
     sub_df = df.loc[indeces,:].to_dict('list')
     
     response = {'status':200,'holding':sub_df['Holding'],'case':sub_df['Case'],'date':sub_df['Date'],'elegibility':sub_df['Eligibility'],'score':list(scores)}
-    print(response)
     return response
 
 @app.post("/get_unpatentable_relevant_sents")
@@ -97,12 +119,11 @@ async def get_gibson_relevant_sents(get_unpatentable_relevant_sents_body:GetUnpa
     request = get_unpatentable_relevant_sents_body.request
     n_sents = get_unpatentable_relevant_sents_body.n_sents
     gipson_path = os.path.join(base_path,'data','Unpatentable')
-    indeces,scores = get_top_n_embeddings(request,gipson_path,n_sents)
+    indeces,scores = get_top_n_embeddings_unpatentable(request,gipson_path,n_sents)
     df = pd.read_excel(os.path.join(gipson_path,'Final ML08 - PTAB Case Data.xlsx'))
     sub_df = df.loc[indeces,:].to_dict('list')
     
     response = {'status':200,'Claim 1 of Patent':sub_df['Claim 1 of Patent'],'Case Name':sub_df['Case Name'],'Case Number':sub_df['Case Number'],'US Patent Number':sub_df['US Patent Number'],'Determination':sub_df['Determination'],'score':list(scores)}
-    print(response)
     return response      
 
 @app.post("/is_unpatentable")
@@ -294,7 +315,7 @@ async def choose_imp_sents(choose_imp_sents_body:ChooseImpSentsBody):
     relevant_part = "".join(sents)
     return {"status":200,"relevant_part":relevant_part,"sorted_sentences":sorted_sentences[:n_sents]}
 
-# if __name__ == "__main__":
-#     uvicorn.run(app,port=80)
+if __name__ == "__main__":
+    uvicorn.run(app,port=80)
     
 
