@@ -10,6 +10,7 @@ df_unpantable = pd.read_excel('./data/Unpatentable/ML08 - PTAB Case Data.xlsx', 
 df = pd.concat([df_not_unpantable,df_unpantable])
 df = df.dropna(axis=1,how='all')
 df = df.dropna(subset=['Claim 1 of Patent'],axis=0)
+df = df.drop_duplicates(subset = "US Patent Number")
 df = df.reset_index(drop=True)
 df.to_excel("./data/Unpatentable/Final ML08 - PTAB Case Data.xlsx",index=False)
 
