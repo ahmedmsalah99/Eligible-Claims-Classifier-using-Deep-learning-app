@@ -4,3 +4,4 @@ quantized_setfitonnx_model.onnx
 run_all.sh
 env
 serviceKeys.json
+/.ipynb_checkpoints
