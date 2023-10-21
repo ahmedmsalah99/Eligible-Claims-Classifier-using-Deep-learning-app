@@ -5,6 +5,11 @@ import numpy as np
 import xgboost as xgb
 import onnxruntime
 from fastapi import FastAPI
+import requests
+import json
+from google.oauth2 import service_account
+import google.auth.transport.requests
+from typing import List
 import uvicorn
 from transformers import AutoTokenizer
 from sentence_transformers import SentenceTransformer
@@ -51,6 +56,21 @@ class Item(BaseModel):
     representative_claim_input: str
     judge: str  = None
     court:str  = None
+class PTAB_PKScoreElement(BaseModel):
+    P10:int
+    P15:int
+    P25:int
+    PMAX:int
+    PCOUNT:int
+    PAT:int
+    PATCON:float
+    UNR:float
+    UNRCON:float
+class PTAB_PKScoreReq(BaseModel):
+    instances:List[PTAB_PKScoreElement]
+
+    
+        
 class UnpatentableItem(BaseModel):
     claim: str
     claim_name: str  = None
@@ -315,6 +335,38 @@ async def choose_imp_sents(choose_imp_sents_body:ChooseImpSentsBody):
     relevant_part = "".join(sents)
     return {"status":200,"relevant_part":relevant_part,"sorted_sentences":sorted_sentences[:n_sents]}
 
+def request_vertex_ai(PROJECT_ID,ENDPOINT_ID,data):
+    credentials = service_account.Credentials.from_service_account_file('serviceKeys.json', scopes=['https://www.googleapis.com/auth/cloud-platform'])
+    url = f"https://us-west1-aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/us-west1/endpoints/{ENDPOINT_ID}:predict"
+    auth_req = google.auth.transport.requests.Request()
+    credentials.refresh(auth_req)
+    # Create a dictionary to represent the headers
+    headers = {
+    "Authorization": "Bearer " + credentials.token,
+        "Content-Type": "application/json",  # Include other headers as needed
+    }
+    json_data = json.dumps(data)
+    response = requests.post(url, headers=headers,data = json_data)
+    return response
+
+@app.post("/PTAB-PKScore")
+async def PTAB_PKScore(req:PTAB_PKScoreReq):
+    data_json = req.json()
+    PROJECT_ID="532895528435"
+    ENDPOINT_ID="2837575628499189760"
+    data_dict = json.loads(data_json)
+    for i, ele in enumerate(data_dict['instances']):
+        data_dict['instances'][i] = {key:str(ele[key])for key in ele}
+    resp = request_vertex_ai(PROJECT_ID,ENDPOINT_ID,data_dict)
+    if resp.status_code != 200:
+        return resp.json()
+    preds = []
+    data = resp.json()
+    for pred in data['predictions']:
+        idx = np.argmax(pred['scores'])
+        preds.append({'score':pred['scores'][idx],'class':pred['classes'][idx]})
+    return {"status":200,'predictions':preds}
+     
 if __name__ == "__main__":
     uvicorn.run(app,port=80)
     
